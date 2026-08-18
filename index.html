@@ -28,11 +28,24 @@ body {
 }
 
 #video {
-    width: 100%;
-    height: 100%;
+    width: 100vh;
+    height: 100vw;
     display: block;
     object-fit: cover;
     background: #000;
+
+    /* =====================================================
+       ALTERAÇÃO:
+       Gira o vídeo vertical em 90 graus dentro da página.
+       O tamanho é invertido para que o vídeo ocupe
+       corretamente a tela quando a TV estiver fisicamente
+       posicionada na vertical.
+       ===================================================== */
+
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(90deg);
 }
 
 #controls {
@@ -656,6 +669,14 @@ video.loop = true;
 var hideControlsTimer;
 
 
+/* =====================================================
+   ALTERAÇÃO:
+   Timer separado para esconder o ponteiro da TV.
+   ===================================================== */
+
+var hideCursorTimer;
+
+
 function showControls() {
 
     player.classList.add(
@@ -679,6 +700,46 @@ function showControls() {
             },
             3000
         );
+
+
+    /* =================================================
+       ALTERAÇÃO:
+       Esconde o ponteiro depois de 3 segundos sem
+       movimento, mas somente quando estiver em
+       tela cheia.
+       ================================================= */
+
+    clearTimeout(
+        hideCursorTimer
+    );
+
+
+    if (
+        document.fullscreenElement ||
+        document.webkitFullscreenElement
+    ) {
+
+        document.body.style.cursor =
+            "default";
+
+
+        hideCursorTimer =
+            setTimeout(
+                function() {
+
+                    document.body.style.cursor =
+                        "none";
+
+                },
+                3000
+            );
+
+    } else {
+
+        document.body.style.cursor =
+            "default";
+
+    }
 
 }
 
@@ -819,12 +880,55 @@ function updateFullscreenButton() {
             "Sair da tela cheia"
         );
 
+
+        /* =================================================
+           ALTERAÇÃO:
+           Ao entrar em tela cheia, começa a contagem
+           para esconder o ponteiro da TV.
+           ================================================= */
+
+        clearTimeout(
+            hideCursorTimer
+        );
+
+
+        document.body.style.cursor =
+            "default";
+
+
+        hideCursorTimer =
+            setTimeout(
+                function() {
+
+                    document.body.style.cursor =
+                        "none";
+
+                },
+                3000
+            );
+
+
     } else {
 
         fullscreenBtn.setAttribute(
             "aria-label",
             "Tela cheia"
         );
+
+
+        /* =================================================
+           ALTERAÇÃO:
+           Ao sair da tela cheia, o ponteiro volta a
+           ficar visível normalmente.
+           ================================================= */
+
+        clearTimeout(
+            hideCursorTimer
+        );
+
+
+        document.body.style.cursor =
+            "default";
 
     }
 
@@ -845,7 +949,7 @@ document.addEventListener(
 
 /* =====================================================
    LIMPAR BLOB
-   ===================================================== */
+   ================================================= */
 
 window.addEventListener(
     "beforeunload",
@@ -869,7 +973,7 @@ window.addEventListener(
 
 /* =====================================================
    INICIALIZAÇÃO
-   ===================================================== */
+   ================================================= */
 
 player.classList.remove(
     "controls-visible"
