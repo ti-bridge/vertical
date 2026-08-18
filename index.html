@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<style>
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+}
+
+#player {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+}
+
+#video {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    background: #000;
+}
+
+#controls {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 90px;
+
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+
+    padding: 0 25px 20px;
+    box-sizing: border-box;
+
+    background: linear-gradient(
+        transparent,
+        rgba(0, 0, 0, 0.65)
+    );
+
+    opacity: 0;
+    transition: opacity 0.25s ease;
+
+    pointer-events: none;
+}
+
+#player.controls-visible #controls {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#fullscreenBtn {
+    width: 58px;
+    height: 48px;
+
+    border: none;
+    border-radius: 5px;
+
+    background: rgba(30, 30, 30, 0.85);
+
+    color: #fff;
+
+    font-size: 27px;
+    line-height: 48px;
+
+    cursor: pointer;
+    outline: none;
+}
+
+#fullscreenBtn:hover,
+#fullscreenBtn:focus {
+    background: rgba(255, 255, 255, 0.25);
+    transform: scale(1.05);
+}
+
+/* =====================================================
+   LOADING
+   ===================================================== */
+
+#loading {
+    position: absolute;
+
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    z-index: 100;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    flex-direction: column;
+
+    background: #000;
+
+    color: #fff;
+
+    font-family: Arial, sans-serif;
+
+    font-size: 22px;
+}
+
+#loading.hidden {
+    display: none;
+}
+
+#loadingText {
+    margin-bottom: 20px;
+}
+
+#loadingBar {
+    width: 300px;
+    height: 6px;
+
+    background: #333;
+
+    border-radius: 3px;
+
+    overflow: hidden;
+}
+
+#loadingProgress {
+    width: 0%;
+    height: 100%;
+
+    background: #fff;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="player">
+
+    <!-- =================================================
+         CARREGAMENTO
+         ================================================= -->
+
+    <div id="loading">
+
+        <div id="loadingText">
+            Carregando vídeo...
+        </div>
+
+        <div id="loadingBar">
+
+            <div id="loadingProgress"></div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =================================================
+         VÍDEO
+         ================================================= -->
+
+    <video
+        id="video"
+        muted
+        loop
+        playsinline
+        preload="auto">
+    </video>
+
+
+    <!-- =================================================
+         CONTROLES
+         ================================================= -->
+
+    <div id="controls">
+
+        <button
+            id="fullscreenBtn"
+            type="button"
+            aria-label="Tela cheia">
+
+            ⛶
+
+        </button>
+
+    </div>
+
+</div>
+
+
+<script>
+
+/* =====================================================
+   CONFIGURAÇÃO
+   ================================================= */
+
+/*
+ * O vídeo deve estar na mesma pasta
+ * deste arquivo HTML.
+ */
+
+var VIDEO_FILE = "video_tizen.mp4";
+
+
+/*
+ * Nome do cache.
+ *
+ * Enquanto for v1, o vídeo será reutilizado
+ * do cache da TV.
+ */
+
+var CACHE_NAME = "video-cache-v1";
+
+
+/* =====================================================
+   ELEMENTOS
+   ===================================================== */
+
+var player =
+    document.getElementById("player");
+
+var video =
+    document.getElementById("video");
+
+var fullscreenBtn =
+    document.getElementById("fullscreenBtn");
+
+var loading =
+    document.getElementById("loading");
+
+var loadingText =
+    document.getElementById("loadingText");
+
+var loadingProgress =
+    document.getElementById("loadingProgress");
+
+
+/* =====================================================
+   URL DO VÍDEO
+   ===================================================== */
+
+var VIDEO_URL =
+    new URL(
+        VIDEO_FILE,
+        window.location.href
+    ).href;
+
+
+/* =====================================================
+   BLOB URL
+   ===================================================== */
+
+var blobUrl = null;
+
+
+/* =====================================================
+   PROGRESSO
+   ===================================================== */
+
+function setProgress(percent) {
+
+    if (percent < 0) {
+        percent = 0;
+    }
+
+    if (percent > 100) {
+        percent = 100;
+    }
+
+    loadingProgress.style.width =
+        percent + "%";
+
+}
+
+
+/* =====================================================
+   LOADING
+   ===================================================== */
+
+function showLoading(text) {
+
+    loadingText.textContent = text;
+
+    loading.classList.remove(
+        "hidden"
+    );
+
+}
+
+
+function hideLoading() {
+
+    loading.classList.add(
+        "hidden"
+    );
+
+}
+
+
+/* =====================================================
+   REPRODUZIR BLOB
+   ===================================================== */
+
+function playBlob(blob) {
+
+    console.log(
+        "Blob recebido:",
+        blob.size,
+        "bytes"
+    );
+
+
+    if (
+        !blob ||
+        blob.size === 0
+    ) {
+
+        throw new Error(
+            "Blob vazio."
+        );
+
+    }
+
+
+    /*
+     * Libera Blob URL anterior.
+     */
+
+    if (blobUrl) {
+
+        try {
+
+            URL.revokeObjectURL(
+                blobUrl
+            );
+
+        } catch (e) {}
+
+    }
+
+
+    /*
+     * Cria URL local.
+     */
+
+    blobUrl =
+        URL.createObjectURL(
+            blob
+        );
+
+
+    /*
+     * O vídeo passa a usar
+     * o Blob local.
+     */
+
+    video.src = blobUrl;
+
+    video.load();
+
+
+    /*
+     * Aguarda o vídeo ficar pronto.
+     */
+
+    video.oncanplay = function() {
+
+        video.play()
+            .then(function() {
+
+                console.log(
+                    "Vídeo reproduzindo."
+                );
+
+                hideLoading();
+
+            })
+            .catch(function(error) {
+
+                console.log(
+                    "Erro no play:",
+                    error
+                );
+
+            });
+
+    };
+
+}
+
+
+/* =====================================================
+   DOWNLOAD DO VÍDEO
+   ===================================================== */
+
+async function downloadVideo(cache) {
+
+    showLoading(
+        "Baixando vídeo..."
+    );
+
+    setProgress(0);
+
+
+    console.log(
+        "Baixando vídeo:"
+    );
+
+    console.log(
+        VIDEO_URL
+    );
+
+
+    /*
+     * Faz o download.
+     */
+
+    var response =
+        await fetch(
+            VIDEO_URL
+        );
+
+
+    console.log(
+        "HTTP:",
+        response.status
+    );
+
+
+    if (!response.ok) {
+
+        throw new Error(
+            "Erro HTTP " +
+            response.status
+        );
+
+    }
+
+
+    /*
+     * IMPORTANTE:
+     *
+     * O clone precisa ser feito
+     * antes de response.blob().
+     */
+
+    var responseForCache =
+        response.clone();
+
+
+    /*
+     * Salva o arquivo no Cache Storage.
+     */
+
+    await cache.put(
+        VIDEO_URL,
+        responseForCache
+    );
+
+
+    console.log(
+        "Vídeo salvo no cache."
+    );
+
+
+    setProgress(50);
+
+
+    /*
+     * Converte o arquivo para Blob.
+     */
+
+    var blob =
+        await response.blob();
+
+
+    setProgress(100);
+
+
+    console.log(
+        "Download concluído:",
+        blob.size,
+        "bytes"
+    );
+
+
+    return blob;
+
+}
+
+
+/* =====================================================
+   CARREGAR VÍDEO
+   ===================================================== */
+
+async function loadVideo() {
+
+    try {
+
+        /*
+         * Verifica se Cache Storage existe.
+         */
+
+        if (!window.caches) {
+
+            throw new Error(
+                "Cache Storage não suportado."
+            );
+
+        }
+
+
+        /*
+         * Abre o cache.
+         */
+
+        var cache =
+            await caches.open(
+                CACHE_NAME
+            );
+
+
+        /*
+         * Procura o vídeo.
+         */
+
+        var cachedResponse =
+            await cache.match(
+                VIDEO_URL
+            );
+
+
+        /* =================================================
+           VÍDEO JÁ ESTÁ NO CACHE
+           ================================================= */
+
+        if (cachedResponse) {
+
+            console.log(
+                "Vídeo encontrado no cache."
+            );
+
+
+            showLoading(
+                "Carregando vídeo..."
+            );
+
+
+            setProgress(100);
+
+
+            var cachedBlob =
+                await cachedResponse.blob();
+
+
+            playBlob(
+                cachedBlob
+            );
+
+
+            return;
+
+        }
+
+
+        /* =================================================
+           PRIMEIRA EXECUÇÃO
+           ================================================= */
+
+        console.log(
+            "Vídeo não está no cache."
+        );
+
+
+        var downloadedBlob =
+            await downloadVideo(
+                cache
+            );
+
+
+        playBlob(
+            downloadedBlob
+        );
+
+
+    } catch (error) {
+
+        console.log(
+            "ERRO AO CARREGAR VÍDEO:"
+        );
+
+        console.log(
+            error
+        );
+
+
+        loadingText.textContent =
+            "Erro ao carregar vídeo";
+
+
+        setProgress(0);
+
+    }
+
+}
+
+
+/* =====================================================
+   ERRO DO VÍDEO
+   ===================================================== */
+
+video.addEventListener(
+    "error",
+    function() {
+
+        console.log(
+            "ERRO NO ELEMENTO VIDEO:"
+        );
+
+        console.log(
+            video.error
+        );
+
+    }
+);
+
+
+/* =====================================================
+   LOOP
+   ===================================================== */
+
+video.loop = true;
+
+
+/* =====================================================
+   CONTROLES
+   ===================================================== */
+
+var hideControlsTimer;
+
+
+function showControls() {
+
+    player.classList.add(
+        "controls-visible"
+    );
+
+
+    clearTimeout(
+        hideControlsTimer
+    );
+
+
+    hideControlsTimer =
+        setTimeout(
+            function() {
+
+                player.classList.remove(
+                    "controls-visible"
+                );
+
+            },
+            3000
+        );
+
+}
+
+
+document.addEventListener(
+    "mousemove",
+    function() {
+
+        showControls();
+
+    }
+);
+
+
+document.addEventListener(
+    "pointermove",
+    function() {
+
+        showControls();
+
+    }
+);
+
+
+document.addEventListener(
+    "touchstart",
+    function() {
+
+        showControls();
+
+    }
+);
+
+
+/* =====================================================
+   TELA CHEIA
+   ===================================================== */
+
+function enterFullscreen() {
+
+    var request =
+        player.requestFullscreen ||
+        player.webkitRequestFullscreen;
+
+
+    if (request) {
+
+        request.call(
+            player
+        );
+
+    }
+
+}
+
+
+function exitFullscreen() {
+
+    var exit =
+        document.exitFullscreen ||
+        document.webkitExitFullscreen;
+
+
+    if (exit) {
+
+        exit.call(
+            document
+        );
+
+    }
+
+}
+
+
+fullscreenBtn.addEventListener(
+    "click",
+    function() {
+
+        if (
+            document.fullscreenElement ||
+            document.webkitFullscreenElement
+        ) {
+
+            exitFullscreen();
+
+        } else {
+
+            enterFullscreen();
+
+        }
+
+        showControls();
+
+    }
+);
+
+
+/* =====================================================
+   CONTROLE REMOTO
+   ===================================================== */
+
+fullscreenBtn.addEventListener(
+    "keydown",
+    function(event) {
+
+        if (
+            event.key === "Enter" ||
+            event.key === " " ||
+            event.keyCode === 13 ||
+            event.keyCode === 32
+        ) {
+
+            event.preventDefault();
+
+            fullscreenBtn.click();
+
+        }
+
+    }
+);
+
+
+/* =====================================================
+   ESTADO DA TELA CHEIA
+   ===================================================== */
+
+function updateFullscreenButton() {
+
+    var fullscreen =
+        document.fullscreenElement ||
+        document.webkitFullscreenElement;
+
+
+    if (fullscreen) {
+
+        fullscreenBtn.setAttribute(
+            "aria-label",
+            "Sair da tela cheia"
+        );
+
+    } else {
+
+        fullscreenBtn.setAttribute(
+            "aria-label",
+            "Tela cheia"
+        );
+
+    }
+
+}
+
+
+document.addEventListener(
+    "fullscreenchange",
+    updateFullscreenButton
+);
+
+
+document.addEventListener(
+    "webkitfullscreenchange",
+    updateFullscreenButton
+);
+
+
+/* =====================================================
+   LIMPAR BLOB
+   ===================================================== */
+
+window.addEventListener(
+    "beforeunload",
+    function() {
+
+        if (blobUrl) {
+
+            try {
+
+                URL.revokeObjectURL(
+                    blobUrl
+                );
+
+            } catch (e) {}
+
+        }
+
+    }
+);
+
+
+/* =====================================================
+   INICIALIZAÇÃO
+   ===================================================== */
+
+player.classList.remove(
+    "controls-visible"
+);
+
+video.muted = true;
+
+
+/*
+ * Inicia o carregamento.
+ */
+
+loadVideo();
+
+</script>
+
+</body>
+
+</html>
