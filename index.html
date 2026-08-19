@@ -34,19 +34,29 @@ body {
     object-fit: contain;
     background: #000;
 
+    /* =====================================================
+       ALTERAÇÃO:
+       O vídeo original permanece vertical.
+       No PC e notebook não é aplicada rotação.
+       ===================================================== */
+
     position: absolute;
     top: 0;
     left: 0;
 }
 
+
 /* =====================================================
    ALTERAÇÃO:
-   Quando estiver em uma Samsung/Tizen, o vídeo vertical
-   é girado visualmente para acompanhar a TV posicionada
+   Na Samsung/Tizen o vídeo vertical é girado
+   visualmente para acompanhar a TV posicionada
    fisicamente na vertical.
+
+   O arquivo NÃO precisa ser convertido pelo FFmpeg.
    ===================================================== */
 
 #player.tizen #video {
+
     width: 100vh;
     height: 100vw;
 
@@ -59,6 +69,7 @@ body {
 
     object-fit: cover;
 }
+
 
 #controls {
     position: absolute;
@@ -241,7 +252,7 @@ body {
  * deste arquivo HTML.
  */
 
-var VIDEO_FILE = "video.mp4";
+var VIDEO_FILE = "video_tizen.mp4";
 
 
 /*
@@ -251,7 +262,7 @@ var VIDEO_FILE = "video.mp4";
  * do cache da TV.
  */
 
-var CACHE_NAME = "video-cache-v2";
+var CACHE_NAME = "video-cache-v1";
 
 
 /* =====================================================
@@ -279,15 +290,14 @@ var loadingProgress =
 
 /* =====================================================
    ALTERAÇÃO:
-   Detecta o navegador Samsung/Tizen.
+   Detecta Samsung/Tizen.
    ===================================================== */
 
 var userAgent =
     navigator.userAgent.toLowerCase();
 
 if (
-    userAgent.indexOf("tizen") !== -1 ||
-    userAgent.indexOf("samsungbrowser") !== -1
+    userAgent.indexOf("tizen") !== -1
 ) {
 
     player.classList.add(
@@ -359,7 +369,8 @@ function hideLoading() {
 function playVideo() {
 
     /*
-     * O vídeo é reproduzido diretamente.
+     * O vídeo passa a usar diretamente
+     * o arquivo original.
      */
 
     video.src = VIDEO_URL;
@@ -420,6 +431,7 @@ async function loadVideo() {
 
         /*
          * Abre o cache.
+
          */
 
         var cache =
