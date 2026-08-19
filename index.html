@@ -31,15 +31,16 @@ body {
     width: 100%;
     height: 100%;
     display: block;
-    object-fit: cover;
+    object-fit: contain;
     background: #000;
 
     /* =====================================================
        ALTERAÇÃO:
-       Gira o vídeo vertical em 90 graus dentro da página.
-       O tamanho é invertido para que o vídeo ocupe
-       corretamente a tela quando a TV estiver fisicamente
-       posicionada na vertical.
+       O vídeo já foi girado fisicamente pelo FFmpeg.
+       Portanto, não é mais necessário aplicar rotação
+       via CSS.
+
+       O vídeo passa a ocupar toda a área do player.
        ===================================================== */
 
     position: absolute;
@@ -543,6 +544,7 @@ async function loadVideo() {
 
         /*
          * Abre o cache.
+
          */
 
         var cache =
