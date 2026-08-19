@@ -34,16 +34,30 @@ body {
     object-fit: contain;
     background: #000;
 
-    /* =====================================================
-       ALTERAÇÃO:
-       O vídeo já foi girado fisicamente pelo FFmpeg.
-       Portanto, o vídeo é reproduzido diretamente pelo
-       elemento VIDEO, sem rotação via CSS.
-       ===================================================== */
-
     position: absolute;
     top: 0;
     left: 0;
+}
+
+/* =====================================================
+   ALTERAÇÃO:
+   Quando estiver em uma Samsung/Tizen, o vídeo vertical
+   é girado visualmente para acompanhar a TV posicionada
+   fisicamente na vertical.
+   ===================================================== */
+
+#player.tizen #video {
+    width: 100vh;
+    height: 100vw;
+
+    top: 50%;
+    left: 50%;
+
+    transform:
+        translate(-50%, -50%)
+        rotate(90deg);
+
+    object-fit: cover;
 }
 
 #controls {
@@ -227,7 +241,7 @@ body {
  * deste arquivo HTML.
  */
 
-var VIDEO_FILE = "video_tizen.mp4";
+var VIDEO_FILE = "video.mp4";
 
 
 /*
@@ -261,6 +275,26 @@ var loadingText =
 
 var loadingProgress =
     document.getElementById("loadingProgress");
+
+
+/* =====================================================
+   ALTERAÇÃO:
+   Detecta o navegador Samsung/Tizen.
+   ===================================================== */
+
+var userAgent =
+    navigator.userAgent.toLowerCase();
+
+if (
+    userAgent.indexOf("tizen") !== -1 ||
+    userAgent.indexOf("samsungbrowser") !== -1
+) {
+
+    player.classList.add(
+        "tizen"
+    );
+
+}
 
 
 /* =====================================================
@@ -325,8 +359,7 @@ function hideLoading() {
 function playVideo() {
 
     /*
-     * O vídeo passa a usar diretamente
-     * o arquivo original.
+     * O vídeo é reproduzido diretamente.
      */
 
     video.src = VIDEO_URL;
@@ -426,13 +459,8 @@ async function loadVideo() {
 
 
             /*
-             * ALTERAÇÃO:
-             *
-             * Mesmo estando no Cache Storage,
-             * o vídeo é reproduzido diretamente pela
-             * URL original.
-             *
-             * Não converte para Blob.
+             * O vídeo é reproduzido diretamente
+             * pela URL original.
              */
 
             playVideo();
@@ -524,9 +552,6 @@ async function loadVideo() {
 
 
         /*
-         * ALTERAÇÃO:
-         *
-         * Não usa response.blob().
          * O vídeo é reproduzido diretamente
          * pela URL original.
          */
