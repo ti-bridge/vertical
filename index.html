@@ -27,26 +27,52 @@ body {
     background: #000;
 }
 
-#video {
+/* =====================================================
+   ALTERAÇÃO:
+   Canvas utilizado para exibir o vídeo.
+
+   O vídeo já foi girado fisicamente pelo FFmpeg.
+   Portanto, o Canvas não gira o conteúdo.
+
+   O Canvas é apenas a superfície de exibição.
+   ===================================================== */
+
+#canvas {
+    position: absolute;
+
     width: 100vh;
     height: 100vw;
-    display: block;
-    object-fit: cover;
-    background: #000;
 
-    /* =====================================================
-       ALTERAÇÃO:
-       O vídeo já foi girado fisicamente pelo FFmpeg.
-
-       As dimensões são invertidas para que o vídeo
-       ocupe a área vertical da TV, sem utilizar
-       rotação CSS.
-       ===================================================== */
-
-    position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
+
+    transform:
+        translate(-50%, -50%)
+        rotate(90deg);
+
+    transform-origin: center center;
+
+    display: block;
+
+    background: #000;
+}
+
+
+/* =====================================================
+   ALTERAÇÃO:
+   O elemento VIDEO fica invisível e serve somente
+   como fonte para o Canvas.
+   ===================================================== */
+
+#video {
+    position: absolute;
+
+    width: 1px;
+    height: 1px;
+
+    opacity: 0;
+
+    pointer-events: none;
 }
 
 #controls {
@@ -200,6 +226,15 @@ body {
 
 
     <!-- =================================================
+         ALTERAÇÃO:
+         Canvas recebe os quadros do vídeo e é usado
+         como superfície de exibição.
+         ================================================= -->
+
+    <canvas id="canvas"></canvas>
+
+
+    <!-- =================================================
          CONTROLES
          ================================================= -->
 
@@ -267,6 +302,18 @@ var loadingProgress =
 
 
 /* =====================================================
+   ALTERAÇÃO:
+   Canvas utilizado para desenhar o vídeo.
+   ===================================================== */
+
+var canvas =
+    document.getElementById("canvas");
+
+var canvasContext =
+    canvas.getContext("2d");
+
+
+/* =====================================================
    URL DO VÍDEO
    ===================================================== */
 
@@ -282,6 +329,14 @@ var VIDEO_URL =
    ===================================================== */
 
 var blobUrl = null;
+
+
+/* =====================================================
+   ALTERAÇÃO:
+   Controle da animação do Canvas.
+   ===================================================== */
+
+var canvasAnimationFrame = null;
 
 
 /* =====================================================
@@ -324,6 +379,75 @@ function hideLoading() {
     loading.classList.add(
         "hidden"
     );
+
+}
+
+
+/* =====================================================
+   ALTERAÇÃO:
+   Inicia o Canvas com as dimensões reais do vídeo.
+
+   O arquivo já está em 1920x1080 depois da conversão
+   feita pelo FFmpeg.
+   ===================================================== */
+
+function startCanvas() {
+
+    if (
+        !video.videoWidth ||
+        !video.videoHeight
+    ) {
+
+        return;
+
+    }
+
+
+    canvas.width =
+        video.videoWidth;
+
+    canvas.height =
+        video.videoHeight;
+
+
+    function drawFrame() {
+
+        if (
+            video.readyState >=
+            HTMLMediaElement.HAVE_CURRENT_DATA
+        ) {
+
+            canvasContext.drawImage(
+                video,
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            );
+
+        }
+
+
+        canvasAnimationFrame =
+            window.requestAnimationFrame(
+                drawFrame
+            );
+
+    }
+
+
+    if (
+        canvasAnimationFrame
+    ) {
+
+        window.cancelAnimationFrame(
+            canvasAnimationFrame
+        );
+
+    }
+
+
+    drawFrame();
 
 }
 
@@ -395,6 +519,9 @@ function playBlob(blob) {
      */
 
     video.oncanplay = function() {
+
+        startCanvas();
+
 
         video.play()
             .then(function() {
@@ -481,7 +608,6 @@ async function downloadVideo(cache) {
 
     /*
      * Salva o arquivo no Cache Storage.
-
      */
 
     await cache.put(
@@ -500,7 +626,6 @@ async function downloadVideo(cache) {
 
     /*
      * Converte o arquivo para Blob.
-
      */
 
     var blob =
@@ -545,7 +670,6 @@ async function loadVideo() {
 
         /*
          * Abre o cache.
-
          */
 
         var cache =
@@ -556,7 +680,6 @@ async function loadVideo() {
 
         /*
          * Procura o vídeo.
-
          */
 
         var cachedResponse =
@@ -966,6 +1089,21 @@ window.addEventListener(
 
                 URL.revokeObjectURL(
                     blobUrl
+                );
+
+            } catch (e) {}
+
+        }
+
+
+        if (
+            canvasAnimationFrame
+        ) {
+
+            try {
+
+                window.cancelAnimationFrame(
+                    canvasAnimationFrame
                 );
 
             } catch (e) {}
