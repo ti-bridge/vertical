@@ -27,52 +27,23 @@ body {
     background: #000;
 }
 
-/* =====================================================
-   ALTERAÇÃO:
-   Canvas utilizado para exibir o vídeo.
-
-   O vídeo já foi girado fisicamente pelo FFmpeg.
-   Portanto, o Canvas não gira o conteúdo.
-
-   O Canvas é apenas a superfície de exibição.
-   ===================================================== */
-
-#canvas {
-    position: absolute;
-
-    width: 100vh;
-    height: 100vw;
-
-    top: 50%;
-    left: 50%;
-
-    transform:
-        translate(-50%, -50%)
-        rotate(90deg);
-
-    transform-origin: center center;
-
-    display: block;
-
-    background: #000;
-}
-
-
-/* =====================================================
-   ALTERAÇÃO:
-   O elemento VIDEO fica invisível e serve somente
-   como fonte para o Canvas.
-   ===================================================== */
-
 #video {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+    background: #000;
+
+    /* =====================================================
+       ALTERAÇÃO:
+       O vídeo já foi girado fisicamente pelo FFmpeg.
+       Portanto, o vídeo é reproduzido diretamente pelo
+       elemento VIDEO, sem rotação via CSS.
+       ===================================================== */
+
     position: absolute;
-
-    width: 1px;
-    height: 1px;
-
-    opacity: 0;
-
-    pointer-events: none;
+    top: 0;
+    left: 0;
 }
 
 #controls {
@@ -226,15 +197,6 @@ body {
 
 
     <!-- =================================================
-         ALTERAÇÃO:
-         Canvas recebe os quadros do vídeo e é usado
-         como superfície de exibição.
-         ================================================= -->
-
-    <canvas id="canvas"></canvas>
-
-
-    <!-- =================================================
          CONTROLES
          ================================================= -->
 
@@ -302,18 +264,6 @@ var loadingProgress =
 
 
 /* =====================================================
-   ALTERAÇÃO:
-   Canvas utilizado para desenhar o vídeo.
-   ===================================================== */
-
-var canvas =
-    document.getElementById("canvas");
-
-var canvasContext =
-    canvas.getContext("2d");
-
-
-/* =====================================================
    URL DO VÍDEO
    ===================================================== */
 
@@ -322,21 +272,6 @@ var VIDEO_URL =
         VIDEO_FILE,
         window.location.href
     ).href;
-
-
-/* =====================================================
-   BLOB URL
-   ===================================================== */
-
-var blobUrl = null;
-
-
-/* =====================================================
-   ALTERAÇÃO:
-   Controle da animação do Canvas.
-   ===================================================== */
-
-var canvasAnimationFrame = null;
 
 
 /* =====================================================
@@ -384,132 +319,17 @@ function hideLoading() {
 
 
 /* =====================================================
-   ALTERAÇÃO:
-   Inicia o Canvas com as dimensões reais do vídeo.
-
-   O arquivo já está em 1920x1080 depois da conversão
-   feita pelo FFmpeg.
+   REPRODUZIR VÍDEO
    ===================================================== */
 
-function startCanvas() {
-
-    if (
-        !video.videoWidth ||
-        !video.videoHeight
-    ) {
-
-        return;
-
-    }
-
-
-    canvas.width =
-        video.videoWidth;
-
-    canvas.height =
-        video.videoHeight;
-
-
-    function drawFrame() {
-
-        if (
-            video.readyState >=
-            HTMLMediaElement.HAVE_CURRENT_DATA
-        ) {
-
-            canvasContext.drawImage(
-                video,
-                0,
-                0,
-                canvas.width,
-                canvas.height
-            );
-
-        }
-
-
-        canvasAnimationFrame =
-            window.requestAnimationFrame(
-                drawFrame
-            );
-
-    }
-
-
-    if (
-        canvasAnimationFrame
-    ) {
-
-        window.cancelAnimationFrame(
-            canvasAnimationFrame
-        );
-
-    }
-
-
-    drawFrame();
-
-}
-
-
-/* =====================================================
-   REPRODUZIR BLOB
-   ===================================================== */
-
-function playBlob(blob) {
-
-    console.log(
-        "Blob recebido:",
-        blob.size,
-        "bytes"
-    );
-
-
-    if (
-        !blob ||
-        blob.size === 0
-    ) {
-
-        throw new Error(
-            "Blob vazio."
-        );
-
-    }
-
+function playVideo() {
 
     /*
-     * Libera Blob URL anterior.
+     * O vídeo passa a usar diretamente
+     * o arquivo original.
      */
 
-    if (blobUrl) {
-
-        try {
-
-            URL.revokeObjectURL(
-                blobUrl
-            );
-
-        } catch (e) {}
-
-    }
-
-
-    /*
-     * Cria URL local.
-     */
-
-    blobUrl =
-        URL.createObjectURL(
-            blob
-        );
-
-
-    /*
-     * O vídeo passa a usar
-     * o Blob local.
-     */
-
-    video.src = blobUrl;
+    video.src = VIDEO_URL;
 
     video.load();
 
@@ -519,9 +339,6 @@ function playBlob(blob) {
      */
 
     video.oncanplay = function() {
-
-        startCanvas();
-
 
         video.play()
             .then(function() {
@@ -543,106 +360,6 @@ function playBlob(blob) {
             });
 
     };
-
-}
-
-
-/* =====================================================
-   DOWNLOAD DO VÍDEO
-   ===================================================== */
-
-async function downloadVideo(cache) {
-
-    showLoading(
-        "Baixando vídeo..."
-    );
-
-    setProgress(0);
-
-
-    console.log(
-        "Baixando vídeo:"
-    );
-
-    console.log(
-        VIDEO_URL
-    );
-
-
-    /*
-     * Faz o download.
-     */
-
-    var response =
-        await fetch(
-            VIDEO_URL
-        );
-
-
-    console.log(
-        "HTTP:",
-        response.status
-    );
-
-
-    if (!response.ok) {
-
-        throw new Error(
-            "Erro HTTP " +
-            response.status
-        );
-
-    }
-
-
-    /*
-     * IMPORTANTE:
-     *
-     * O clone precisa ser feito
-     * antes de response.blob().
-     */
-
-    var responseForCache =
-        response.clone();
-
-
-    /*
-     * Salva o arquivo no Cache Storage.
-     */
-
-    await cache.put(
-        VIDEO_URL,
-        responseForCache
-    );
-
-
-    console.log(
-        "Vídeo salvo no cache."
-    );
-
-
-    setProgress(50);
-
-
-    /*
-     * Converte o arquivo para Blob.
-     */
-
-    var blob =
-        await response.blob();
-
-
-    setProgress(100);
-
-
-    console.log(
-        "Download concluído:",
-        blob.size,
-        "bytes"
-    );
-
-
-    return blob;
 
 }
 
@@ -680,6 +397,7 @@ async function loadVideo() {
 
         /*
          * Procura o vídeo.
+
          */
 
         var cachedResponse =
@@ -707,13 +425,17 @@ async function loadVideo() {
             setProgress(100);
 
 
-            var cachedBlob =
-                await cachedResponse.blob();
+            /*
+             * ALTERAÇÃO:
+             *
+             * Mesmo estando no Cache Storage,
+             * o vídeo é reproduzido diretamente pela
+             * URL original.
+             *
+             * Não converte para Blob.
+             */
 
-
-            playBlob(
-                cachedBlob
-            );
+            playVideo();
 
 
             return;
@@ -730,15 +452,86 @@ async function loadVideo() {
         );
 
 
-        var downloadedBlob =
-            await downloadVideo(
-                cache
+        showLoading(
+            "Baixando vídeo..."
+        );
+
+        setProgress(0);
+
+
+        console.log(
+            "Baixando vídeo:"
+        );
+
+        console.log(
+            VIDEO_URL
+        );
+
+
+        /*
+         * Faz o download.
+         */
+
+        var response =
+            await fetch(
+                VIDEO_URL
             );
 
 
-        playBlob(
-            downloadedBlob
+        console.log(
+            "HTTP:",
+            response.status
         );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Erro HTTP " +
+                response.status
+            );
+
+        }
+
+
+        /*
+         * IMPORTANTE:
+         *
+         * O clone precisa ser feito
+         * antes de response.blob().
+         */
+
+        var responseForCache =
+            response.clone();
+
+
+        /*
+         * Salva o arquivo no Cache Storage.
+         */
+
+        await cache.put(
+            VIDEO_URL,
+            responseForCache
+        );
+
+
+        console.log(
+            "Vídeo salvo no cache."
+        );
+
+
+        setProgress(100);
+
+
+        /*
+         * ALTERAÇÃO:
+         *
+         * Não usa response.blob().
+         * O vídeo é reproduzido diretamente
+         * pela URL original.
+         */
+
+        playVideo();
 
 
     } catch (error) {
@@ -1072,45 +865,6 @@ document.addEventListener(
 document.addEventListener(
     "webkitfullscreenchange",
     updateFullscreenButton
-);
-
-
-/* =====================================================
-   LIMPAR BLOB
-   ================================================= */
-
-window.addEventListener(
-    "beforeunload",
-    function() {
-
-        if (blobUrl) {
-
-            try {
-
-                URL.revokeObjectURL(
-                    blobUrl
-                );
-
-            } catch (e) {}
-
-        }
-
-
-        if (
-            canvasAnimationFrame
-        ) {
-
-            try {
-
-                window.cancelAnimationFrame(
-                    canvasAnimationFrame
-                );
-
-            } catch (e) {}
-
-        }
-
-    }
 );
 
 
