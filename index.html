@@ -25,27 +25,39 @@ body {
     width: 100vw;
     height: 100vh;
     background: #000;
-}
-
-#video {
-    width: 100vh;
-    height: 100vw;
-    display: block;
-    object-fit: cover;
-    background: #000;
 
     /* =====================================================
        ALTERAÇÃO:
-       Gira o vídeo vertical em 90 graus dentro da página.
-       O tamanho é invertido para que o vídeo ocupe
-       corretamente a tela quando a TV estiver fisicamente
-       posicionada na vertical.
+       A rotação agora é aplicada ao PLAYER inteiro,
+       em vez de ser aplicada diretamente ao vídeo.
+
+       Isso faz com que o vídeo, controles e demais
+       elementos sejam rotacionados juntos em 90 graus.
+
+       A posição central garante que o player continue
+       centralizado na tela após a rotação.
        ===================================================== */
 
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%) rotate(90deg);
+}
+
+#video {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    background: #000;
+
+    /* =====================================================
+       ALTERAÇÃO:
+       A rotação foi removida do vídeo.
+
+       O vídeo agora ocupa normalmente todo o #player.
+       A rotação de 90 graus é feita pelo #player inteiro.
+       ===================================================== */
 }
 
 #controls {
