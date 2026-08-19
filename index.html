@@ -27,46 +27,25 @@ body {
     background: #000;
 }
 
-/* =====================================================
-   ALTERAÇÃO:
-   Criado um contêiner exclusivo para o vídeo.
-
-   O #player permanece sem rotação.
-
-   O contêiner possui as dimensões invertidas
-   para permitir que o conteúdo vertical ocupe
-   corretamente a tela quando rotacionado em 90 graus.
-   ===================================================== */
-
-#videoRotation {
-    position: absolute;
-
+#video {
     width: 100vh;
     height: 100vw;
+    display: block;
+    object-fit: cover;
+    background: #000;
 
+    /* =====================================================
+       ALTERAÇÃO:
+       Gira o vídeo vertical em 90 graus dentro da página.
+       O tamanho é invertido para que o vídeo ocupe
+       corretamente a tela quando a TV estiver fisicamente
+       posicionada na vertical.
+       ===================================================== */
+
+    position: absolute;
     top: 50%;
     left: 50%;
-
-    transform:
-        translate(-50%, -50%)
-        rotate(90deg);
-
-    transform-origin: center center;
-
-    background: #000;
-
-    overflow: hidden;
-}
-
-#video {
-    width: 100%;
-    height: 100%;
-
-    display: block;
-
-    object-fit: cover;
-
-    background: #000;
+    transform: translate(-50%, -50%);
 }
 
 #controls {
@@ -210,23 +189,13 @@ body {
          VÍDEO
          ================================================= -->
 
-    <!-- =================================================
-         ALTERAÇÃO:
-         O vídeo foi colocado dentro de um contêiner
-         exclusivo para aplicar a rotação de 90 graus.
-         ================================================= -->
-
-    <div id="videoRotation">
-
-        <video
-            id="video"
-            muted
-            loop
-            playsinline
-            preload="auto">
-        </video>
-
-    </div>
+    <video
+        id="video"
+        muted
+        loop
+        playsinline
+        preload="auto">
+    </video>
 
 
     <!-- =================================================
@@ -511,6 +480,7 @@ async function downloadVideo(cache) {
 
     /*
      * Salva o arquivo no Cache Storage.
+
      */
 
     await cache.put(
@@ -529,6 +499,7 @@ async function downloadVideo(cache) {
 
     /*
      * Converte o arquivo para Blob.
+
      */
 
     var blob =
@@ -583,6 +554,7 @@ async function loadVideo() {
 
         /*
          * Procura o vídeo.
+
          */
 
         var cachedResponse =
