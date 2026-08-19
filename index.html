@@ -28,48 +28,12 @@ body {
 }
 
 #video {
-    width: auto;
-    height: 100vh;
-
+    width: 100%;
+    height: 100%;
     display: block;
-
-    object-fit: contain;
-
-    background: #000;
-
-    position: absolute;
-
-    top: 50%;
-    left: 50%;
-
-    transform:
-        translate(-50%, -50%);
-}
-
-
-/* =====================================================
-   ALTERAÇÃO:
-   Samsung/Tizen:
-   O vídeo vertical original é girado visualmente
-   para acompanhar a TV posicionada fisicamente
-   na vertical.
-   ===================================================== */
-
-#player.tizen #video {
-
-    width: 100vh;
-    height: 100vw;
-
-    top: 50%;
-    left: 50%;
-
-    transform:
-        translate(-50%, -50%)
-        rotate(90deg);
-
     object-fit: cover;
+    background: #000;
 }
-
 
 #controls {
     position: absolute;
@@ -289,25 +253,6 @@ var loadingProgress =
 
 
 /* =====================================================
-   ALTERAÇÃO:
-   Detecta Samsung/Tizen.
-   ===================================================== */
-
-var userAgent =
-    navigator.userAgent.toLowerCase();
-
-if (
-    userAgent.indexOf("tizen") !== -1
-) {
-
-    player.classList.add(
-        "tizen"
-    );
-
-}
-
-
-/* =====================================================
    URL DO VÍDEO
    ===================================================== */
 
@@ -316,6 +261,13 @@ var VIDEO_URL =
         VIDEO_FILE,
         window.location.href
     ).href;
+
+
+/* =====================================================
+   BLOB URL
+   ===================================================== */
+
+var blobUrl = null;
 
 
 /* =====================================================
@@ -363,17 +315,63 @@ function hideLoading() {
 
 
 /* =====================================================
-   REPRODUZIR VÍDEO
+   REPRODUZIR BLOB
    ===================================================== */
 
-function playVideo() {
+function playBlob(blob) {
+
+    console.log(
+        "Blob recebido:",
+        blob.size,
+        "bytes"
+    );
+
+
+    if (
+        !blob ||
+        blob.size === 0
+    ) {
+
+        throw new Error(
+            "Blob vazio."
+        );
+
+    }
+
 
     /*
-     * O vídeo passa a usar diretamente
-     * o arquivo original.
+     * Libera Blob URL anterior.
      */
 
-    video.src = VIDEO_URL;
+    if (blobUrl) {
+
+        try {
+
+            URL.revokeObjectURL(
+                blobUrl
+            );
+
+        } catch (e) {}
+
+    }
+
+
+    /*
+     * Cria URL local.
+     */
+
+    blobUrl =
+        URL.createObjectURL(
+            blob
+        );
+
+
+    /*
+     * O vídeo passa a usar
+     * o Blob local.
+     */
+
+    video.src = blobUrl;
 
     video.load();
 
@@ -409,6 +407,106 @@ function playVideo() {
 
 
 /* =====================================================
+   DOWNLOAD DO VÍDEO
+   ===================================================== */
+
+async function downloadVideo(cache) {
+
+    showLoading(
+        "Baixando vídeo..."
+    );
+
+    setProgress(0);
+
+
+    console.log(
+        "Baixando vídeo:"
+    );
+
+    console.log(
+        VIDEO_URL
+    );
+
+
+    /*
+     * Faz o download.
+     */
+
+    var response =
+        await fetch(
+            VIDEO_URL
+        );
+
+
+    console.log(
+        "HTTP:",
+        response.status
+    );
+
+
+    if (!response.ok) {
+
+        throw new Error(
+            "Erro HTTP " +
+            response.status
+        );
+
+    }
+
+
+    /*
+     * IMPORTANTE:
+     *
+     * O clone precisa ser feito
+     * antes de response.blob().
+     */
+
+    var responseForCache =
+        response.clone();
+
+
+    /*
+     * Salva o arquivo no Cache Storage.
+     */
+
+    await cache.put(
+        VIDEO_URL,
+        responseForCache
+    );
+
+
+    console.log(
+        "Vídeo salvo no cache."
+    );
+
+
+    setProgress(50);
+
+
+    /*
+     * Converte o arquivo para Blob.
+     */
+
+    var blob =
+        await response.blob();
+
+
+    setProgress(100);
+
+
+    console.log(
+        "Download concluído:",
+        blob.size,
+        "bytes"
+    );
+
+
+    return blob;
+
+}
+
+
+/* =====================================================
    CARREGAR VÍDEO
    ===================================================== */
 
@@ -431,7 +529,6 @@ async function loadVideo() {
 
         /*
          * Abre o cache.
-
          */
 
         var cache =
@@ -442,7 +539,6 @@ async function loadVideo() {
 
         /*
          * Procura o vídeo.
-
          */
 
         var cachedResponse =
@@ -470,12 +566,13 @@ async function loadVideo() {
             setProgress(100);
 
 
-            /*
-             * O vídeo é reproduzido diretamente
-             * pela URL original.
-             */
+            var cachedBlob =
+                await cachedResponse.blob();
 
-            playVideo();
+
+            playBlob(
+                cachedBlob
+            );
 
 
             return;
@@ -492,84 +589,15 @@ async function loadVideo() {
         );
 
 
-        showLoading(
-            "Baixando vídeo..."
-        );
-
-        setProgress(0);
-
-
-        console.log(
-            "Baixando vídeo:"
-        );
-
-        console.log(
-            VIDEO_URL
-        );
-
-
-        /*
-         * Faz o download.
-         */
-
-        var response =
-            await fetch(
-                VIDEO_URL
+        var downloadedBlob =
+            await downloadVideo(
+                cache
             );
 
 
-        console.log(
-            "HTTP:",
-            response.status
+        playBlob(
+            downloadedBlob
         );
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                "Erro HTTP " +
-                response.status
-            );
-
-        }
-
-
-        /*
-         * IMPORTANTE:
-         *
-         * O clone precisa ser feito
-         * antes de response.blob().
-         */
-
-        var responseForCache =
-            response.clone();
-
-
-        /*
-         * Salva o arquivo no Cache Storage.
-
-         */
-
-        await cache.put(
-            VIDEO_URL,
-            responseForCache
-        );
-
-
-        console.log(
-            "Vídeo salvo no cache."
-        );
-
-
-        setProgress(100);
-
-
-        /*
-         * O vídeo é reproduzido diretamente
-         * pela URL original.
-         */
-
-        playVideo();
 
 
     } catch (error) {
@@ -628,14 +656,6 @@ video.loop = true;
 var hideControlsTimer;
 
 
-/* =====================================================
-   ALTERAÇÃO:
-   Timer separado para esconder o ponteiro da TV.
-   ===================================================== */
-
-var hideCursorTimer;
-
-
 function showControls() {
 
     player.classList.add(
@@ -659,46 +679,6 @@ function showControls() {
             },
             3000
         );
-
-
-    /* =================================================
-       ALTERAÇÃO:
-       Esconde o ponteiro depois de 3 segundos sem
-       movimento, mas somente quando estiver em
-       tela cheia.
-       ================================================= */
-
-    clearTimeout(
-        hideCursorTimer
-    );
-
-
-    if (
-        document.fullscreenElement ||
-        document.webkitFullscreenElement
-    ) {
-
-        document.body.style.cursor =
-            "default";
-
-
-        hideCursorTimer =
-            setTimeout(
-                function() {
-
-                    document.body.style.cursor =
-                        "none";
-
-                },
-                3000
-            );
-
-    } else {
-
-        document.body.style.cursor =
-            "default";
-
-    }
 
 }
 
@@ -839,55 +819,12 @@ function updateFullscreenButton() {
             "Sair da tela cheia"
         );
 
-
-        /* =================================================
-           ALTERAÇÃO:
-           Ao entrar em tela cheia, começa a contagem
-           para esconder o ponteiro da TV.
-           ================================================= */
-
-        clearTimeout(
-            hideCursorTimer
-        );
-
-
-        document.body.style.cursor =
-            "default";
-
-
-        hideCursorTimer =
-            setTimeout(
-                function() {
-
-                    document.body.style.cursor =
-                        "none";
-
-                },
-                3000
-            );
-
-
     } else {
 
         fullscreenBtn.setAttribute(
             "aria-label",
             "Tela cheia"
         );
-
-
-        /* =================================================
-           ALTERAÇÃO:
-           Ao sair da tela cheia, o ponteiro volta a
-           ficar visível normalmente.
-           ================================================= */
-
-        clearTimeout(
-            hideCursorTimer
-        );
-
-
-        document.body.style.cursor =
-            "default";
 
     }
 
@@ -907,8 +844,32 @@ document.addEventListener(
 
 
 /* =====================================================
+   LIMPAR BLOB
+   ===================================================== */
+
+window.addEventListener(
+    "beforeunload",
+    function() {
+
+        if (blobUrl) {
+
+            try {
+
+                URL.revokeObjectURL(
+                    blobUrl
+                );
+
+            } catch (e) {}
+
+        }
+
+    }
+);
+
+
+/* =====================================================
    INICIALIZAÇÃO
-   ================================================= */
+   ===================================================== */
 
 player.classList.remove(
     "controls-visible"
