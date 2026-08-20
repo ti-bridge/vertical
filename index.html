@@ -959,6 +959,461 @@ window.addEventListener(
 
 
 /* =====================================================
+   ALTERAÇÃO: ATUALIZAÇÃO AUTOMÁTICA DO VÍDEO
+   =====================================================
+
+   Verifica o servidor nos horários:
+
+   09:00
+   11:00
+   13:00
+
+   O vídeo atual continua reproduzindo enquanto o novo
+   arquivo é baixado.
+
+   Se não existir vídeo novo, nada é alterado.
+
+   Se existir vídeo novo, ele somente será colocado no
+   player depois que o download estiver completamente
+   concluído.
+
+   A página não é recarregada e o fullscreen não é
+   alterado.
+   ===================================================== */
+
+
+/* =====================================================
+   CONTROLE PARA EVITAR DOIS DOWNLOADS AO MESMO TEMPO
+   ===================================================== */
+
+var updatingVideo = false;
+
+
+/* =====================================================
+   VERIFICAR E ATUALIZAR VÍDEO
+   ===================================================== */
+
+async function checkForNewVideo() {
+
+    if (updatingVideo) {
+
+        console.log(
+            "Atualização já está em andamento."
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        updatingVideo = true;
+
+
+        console.log(
+            "Verificando se existe vídeo novo..."
+        );
+
+
+        /*
+         * Abre o cache atual.
+         */
+
+        var cache =
+            await caches.open(
+                CACHE_NAME
+            );
+
+
+        /*
+         * Adiciona um parâmetro de consulta
+         * para impedir que a requisição seja
+         * atendida por uma versão HTTP antiga.
+         *
+         * O arquivo real continua sendo
+         * VIDEO_FILE.
+         */
+
+        var updateURL =
+            VIDEO_URL +
+            "?update=" +
+            Date.now();
+
+
+        /*
+         * Faz a requisição do servidor.
+         *
+         * O vídeo atual NÃO é alterado neste momento.
+         */
+
+        var response =
+            await fetch(
+                updateURL,
+                {
+                    cache: "no-store"
+                }
+            );
+
+
+        console.log(
+            "Verificação HTTP:",
+            response.status
+        );
+
+
+        /*
+         * Se o servidor não encontrou o arquivo
+         * ou respondeu com erro, mantém o vídeo
+         * atual sem qualquer interrupção.
+         */
+
+        if (!response.ok) {
+
+            console.log(
+                "Nenhum vídeo novo encontrado."
+            );
+
+            return;
+
+        }
+
+
+        /*
+         * Converte o novo arquivo para Blob.
+         *
+         * O vídeo atual continua tocando
+         * durante todo esse processo.
+         */
+
+        var newBlob =
+            await response.blob();
+
+
+        /*
+         * Verifica se o arquivo recebido
+         * realmente possui conteúdo.
+         */
+
+        if (
+            !newBlob ||
+            newBlob.size === 0
+        ) {
+
+            console.log(
+                "Vídeo novo vazio. Mantendo vídeo atual."
+            );
+
+            return;
+
+        }
+
+
+        console.log(
+            "Novo vídeo baixado:",
+            newBlob.size,
+            "bytes"
+        );
+
+
+        /*
+         * Salva o novo vídeo no Cache Storage.
+         */
+
+        var responseForCache =
+            new Response(
+                newBlob,
+                {
+                    status: 200,
+                    statusText: "OK",
+                    headers: {
+                        "Content-Type":
+                            response.headers.get(
+                                "Content-Type"
+                            ) ||
+                            "video/mp4"
+                    }
+                }
+            );
+
+
+        await cache.put(
+            VIDEO_URL,
+            responseForCache
+        );
+
+
+        console.log(
+            "Novo vídeo salvo no cache."
+        );
+
+
+        /*
+         * Guarda o estado de tela cheia.
+         *
+         * Não vamos sair da tela cheia.
+         * Essa verificação existe somente para
+         * garantir que a troca do vídeo não tente
+         * alterar esse estado.
+         */
+
+        var wasFullscreen =
+            document.fullscreenElement ||
+            document.webkitFullscreenElement;
+
+
+        /*
+         * Guarda o estado de reprodução.
+         */
+
+        var wasPlaying =
+            !video.paused;
+
+
+        /*
+         * Cria uma nova URL Blob diretamente
+         * para o vídeo novo.
+         */
+
+        var newBlobUrl =
+            URL.createObjectURL(
+                newBlob
+            );
+
+
+        /*
+         * Guarda a URL Blob anterior.
+         */
+
+        var oldBlobUrl =
+            blobUrl;
+
+
+        /*
+         * Atualiza a variável para apontar
+         * para o novo vídeo.
+         */
+
+        blobUrl =
+            newBlobUrl;
+
+
+        /*
+         * Remove o evento antigo de canplay
+         * para que a troca automática não
+         * execute o comportamento inicial
+         * de loadVideo().
+         */
+
+        video.oncanplay = null;
+
+
+        /*
+         * Coloca o novo vídeo no elemento.
+         */
+
+        video.src =
+            newBlobUrl;
+
+
+        video.load();
+
+
+        /*
+         * Quando o novo vídeo estiver pronto,
+         * começa a reprodução.
+         */
+
+        video.oncanplay =
+            function() {
+
+                video.oncanplay = null;
+
+
+                if (wasPlaying) {
+
+                    video.play()
+                        .then(function() {
+
+                            console.log(
+                                "Novo vídeo reproduzindo."
+                            );
+
+                        })
+                        .catch(function(error) {
+
+                            console.log(
+                                "Erro ao reproduzir vídeo novo:",
+                                error
+                            );
+
+                        });
+
+                }
+
+
+                /*
+                 * Libera a URL Blob anterior
+                 * somente depois que o novo vídeo
+                 * estiver pronto.
+                 */
+
+                if (oldBlobUrl) {
+
+                    try {
+
+                        URL.revokeObjectURL(
+                            oldBlobUrl
+                        );
+
+                    } catch (e) {}
+
+                }
+
+
+                /*
+                 * Garante que o estado de fullscreen
+                 * continue exatamente como estava.
+                 */
+
+                if (wasFullscreen) {
+
+                    console.log(
+                        "Fullscreen mantido."
+                    );
+
+                }
+
+            };
+
+
+        console.log(
+            "Vídeo atualizado sem recarregar a página."
+        );
+
+
+    } catch (error) {
+
+        /*
+         * Qualquer erro durante a verificação ou
+         * download mantém o vídeo atual.
+         */
+
+        console.log(
+            "ERRO AO VERIFICAR VÍDEO NOVO:"
+        );
+
+        console.log(
+            error
+        );
+
+
+    } finally {
+
+        updatingVideo = false;
+
+    }
+
+}
+
+
+/* =====================================================
+   ALTERAÇÃO: VERIFICAÇÃO DOS HORÁRIOS
+   =====================================================
+
+   A cada minuto verifica o horário atual.
+
+   Quando chegar em 09:00, 11:00 ou 13:00,
+   executa a verificação apenas uma vez naquele horário.
+   ===================================================== */
+
+var lastUpdateCheck =
+    "";
+
+
+function checkUpdateSchedule() {
+
+    var now =
+        new Date();
+
+
+    var hours =
+        now.getHours();
+
+
+    var minutes =
+        now.getMinutes();
+
+
+    var scheduleKey =
+        now.getFullYear() +
+        "-" +
+        now.getMonth() +
+        "-" +
+        now.getDate() +
+        "-" +
+        hours +
+        "-" +
+        minutes;
+
+
+    /*
+     * Só executa nos horários definidos.
+     */
+
+    if (
+        (
+            hours === 9 ||
+            hours === 11 ||
+            hours === 13
+        ) &&
+        minutes === 0
+    ) {
+
+        /*
+         * Evita repetir a mesma verificação
+         * várias vezes durante o mesmo minuto.
+         */
+
+        if (
+            lastUpdateCheck ===
+            scheduleKey
+        ) {
+
+            return;
+
+        }
+
+
+        lastUpdateCheck =
+            scheduleKey;
+
+
+        checkForNewVideo();
+
+    }
+
+}
+
+
+/* =====================================================
+   ALTERAÇÃO: INICIA O AGENDAMENTO
+   =====================================================
+
+   Verifica imediatamente e depois verifica
+   novamente a cada minuto.
+   ===================================================== */
+
+checkUpdateSchedule();
+
+
+setInterval(
+    checkUpdateSchedule,
+    60000
+);
+
+
+/* =====================================================
    INICIALIZAÇÃO
    ===================================================== */
 
